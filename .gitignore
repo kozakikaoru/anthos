@@ -1,0 +1,9 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Local tooling (Claude Code preview config)
+.claude/
+
+# Dependencies (none used, but just in case)
+node_modules/

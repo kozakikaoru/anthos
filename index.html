@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Anthos — 言葉が、花になる。</title>
+  <meta name="description" content="書いた言葉が、その文章だけの一輪の花になる。あなたの日々が静かに咲きそろう、言葉の植物標本帳。" />
+  <meta name="theme-color" content="#f5efe2" />
+  <meta name="color-scheme" content="light dark" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Anthos — 言葉が、花になる。" />
+  <meta property="og:description" content="書いた言葉が、その文章だけの一輪の花になる。言葉の植物標本帳。" />
+  <meta property="og:type" content="website" />
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+
+  <!-- Fonts: 明朝(見出し) × ゴシック(本文)。読み込めない環境でも端末フォントで上品に。 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@300;400;500;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="paper">
+
+  <!-- ===== Header ===== -->
+  <header class="topbar" id="topbar">
+    <button class="brand" data-nav="garden" aria-label="Anthos ホーム">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="24" height="24">
+          <path d="M16 17 C15 24 15 27 16 30" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+          <g fill="currentColor">
+            <ellipse cx="16" cy="9" rx="2.6" ry="5.4"/>
+            <ellipse cx="16" cy="9" rx="2.6" ry="5.4" transform="rotate(72 16 14)"/>
+            <ellipse cx="16" cy="9" rx="2.6" ry="5.4" transform="rotate(144 16 14)"/>
+            <ellipse cx="16" cy="9" rx="2.6" ry="5.4" transform="rotate(216 16 14)"/>
+            <ellipse cx="16" cy="9" rx="2.6" ry="5.4" transform="rotate(288 16 14)"/>
+          </g>
+          <circle cx="16" cy="14" r="2.7" fill="var(--paper)"/>
+        </svg>
+      </span>
+      <span class="brand__name">Anthos</span>
+    </button>
+
+    <nav class="nav" role="tablist" aria-label="メインナビゲーション">
+      <button class="nav__item" data-nav="compose" role="tab">書く</button>
+      <button class="nav__item" data-nav="garden" role="tab">庭</button>
+    </nav>
+
+    <button class="icon-btn" id="menuBtn" aria-label="設定をひらく">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.5v2.4M12 19.1v2.4M21.5 12h-2.4M4.9 12H2.5M18.7 5.3l-1.7 1.7M7 17l-1.7 1.7M18.7 18.7L17 17M7 7L5.3 5.3" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </header>
+
+  <main id="main">
+
+    <!-- ===== 書く ===== -->
+    <section id="view-compose" class="view" aria-label="書く">
+      <div class="compose">
+        <div class="compose__write">
+          <div class="compose__head">
+            <span class="overline" id="todayLabel">—</span>
+            <h2 class="prompt" id="prompt">きょう、心に残ったことは？</h2>
+          </div>
+          <div class="field">
+            <textarea id="entry" class="entry" spellcheck="false"
+              placeholder="ここに、いまの気持ちを綴ってみてください。&#10;書くほどに、あなたの言葉から一輪がひらいていきます。"></textarea>
+          </div>
+          <div class="compose__bar">
+            <span class="counter" id="charcount">0 字</span>
+            <span class="dot-sep" aria-hidden="true">·</span>
+            <span class="hint" id="growthHint">まだ、つぼみ</span>
+            <div class="spacer"></div>
+            <button class="ghost" id="newPrompt">別の問い</button>
+            <button class="primary" id="saveBtn" disabled>この一輪を押し花にする</button>
+          </div>
+        </div>
+
+        <div class="compose__bloom">
+          <div class="stage" id="stage">
+            <canvas id="composeCanvas"></canvas>
+          </div>
+          <div class="bloom-name" id="composeName" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 庭 ===== -->
+    <section id="view-garden" class="view" aria-label="庭" hidden>
+      <div class="garden-head">
+        <p class="overline">あなたの言葉が咲きそろう場所</p>
+        <h1 class="garden-title">庭</h1>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="garden-grid" id="gardenGrid"></div>
+      <div class="empty" id="gardenEmpty" hidden>
+        <div class="empty__art" id="emptyArt"></div>
+        <h3>まだ、何も咲いていません</h3>
+        <p>はじめの一文を綴ると、この庭に最初の一輪が咲きます。</p>
+        <button class="primary" data-nav="compose">最初の一輪を咲かせる</button>
+      </div>
+    </section>
+
+    <!-- ===== 一輪を見る ===== -->
+    <section id="view-detail" class="view" aria-label="一輪を見る" hidden>
+      <div class="detail" id="detail"></div>
+    </section>
+
+  </main>
+
+  <!-- ===== オンボーディング ===== -->
+  <div class="overlay" id="onboarding" hidden>
+    <div class="onboard">
+      <div class="onboard__bloom"><canvas id="onboardCanvas"></canvas></div>
+      <p class="overline">Anthos · アンソス</p>
+      <h1 class="onboard__title">言葉が、花になる。</h1>
+      <p class="onboard__lead">
+        綴った文章は、その言葉だけがもつ<strong>一輪の花</strong>になります。<br>
+        同じ言葉からは、いつも同じ花。あなたの日々が、静かな庭に咲きそろっていきます。
+      </p>
+      <p class="onboard__note">
+        “Anthos” はギリシャ語で<em>花</em>。詩を束ねた本を <em>anthology（花の集成）</em> と呼ぶように、
+        ここはあなたの言葉を束ねる、ちいさな植物標本帳です。
+      </p>
+      <button class="primary large" id="startBtn">庭をひらく</button>
+      <p class="onboard__fine">すべては、この端末の中だけに保存されます。アカウントも、送信も、ありません。</p>
+    </div>
+  </div>
+
+  <!-- ===== 設定 ===== -->
+  <div class="overlay" id="settings" hidden>
+    <div class="sheet" role="dialog" aria-label="設定" aria-modal="true">
+      <div class="sheet__head">
+        <h2>設定</h2>
+        <button class="icon-btn" id="closeSettings" aria-label="閉じる">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="setting">
+        <div><div class="setting__label">時間帯</div><div class="setting__sub">庭の空気を切り替えます</div></div>
+        <div class="seg" id="themeSeg">
+          <button data-theme="paper" class="seg__btn">昼</button>
+          <button data-theme="nocturne" class="seg__btn">夜</button>
+        </div>
+      </div>
+
+      <div class="setting">
+        <div><div class="setting__label">音の庭</div><div class="setting__sub">書くあいだ、静かな音が流れます</div></div>
+        <button class="toggle" id="soundToggle" role="switch" aria-checked="true"><span class="toggle__knob"></span></button>
+      </div>
+
+      <div class="setting">
+        <div><div class="setting__label">動きをひかえる</div><div class="setting__sub">花の成長や揺れをおだやかに</div></div>
+        <button class="toggle" id="motionToggle" role="switch" aria-checked="false"><span class="toggle__knob"></span></button>
+      </div>
+
+      <div class="setting setting--stack">
+        <div><div class="setting__label">あなたの庭を持ち出す</div><div class="setting__sub">バックアップ・引っ越しに</div></div>
+        <div class="setting__actions">
+          <button class="ghost" id="exportBtn">書き出す</button>
+          <button class="ghost" id="importBtn">読み込む</button>
+          <input type="file" id="importFile" accept="application/json" hidden />
+        </div>
+      </div>
+
+      <div class="sheet__about">
+        <p>Anthos — 言葉が花になる、植物標本帳。</p>
+        <p class="muted">あなたが綴った言葉は外部へ送信されず、この端末にのみ保存されます。<button class="link" id="clearBtn">すべての記録を消す</button></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 保存セレモニー ===== -->
+  <div class="overlay overlay--clear" id="ceremony" hidden>
+    <div class="ceremony">
+      <div class="ceremony__bloom"><canvas id="ceremonyCanvas"></canvas></div>
+      <div class="ceremony__name" id="ceremonyName"></div>
+      <p class="ceremony__caption">庭に、押し花にしました。</p>
+      <div class="ceremony__actions">
+        <button class="ghost" id="ceremonyContinue">つづけて書く</button>
+        <button class="primary" id="ceremonyGarden">庭で見る</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- offscreen canvas for PNG export -->
+  <canvas id="exportCanvas" width="1200" height="1500" hidden></canvas>
+
+  <script src="js/util.js"></script>
+  <script src="js/botany.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
