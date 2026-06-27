@@ -10,6 +10,7 @@
   --font-sans: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, -apple-system, sans-serif;
 
   --maxw: 1180px;
+  --header-h: 64px;
   --radius: 16px;
   --radius-sm: 10px;
   --ease: cubic-bezier(.22,.61,.36,1);
@@ -300,11 +301,16 @@ h1, h2, h3 { font-family: var(--font-serif); font-weight: 600; line-height: 1.25
 
 /* ===== overlays =========================================================== */
 .overlay {
-  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
-  padding: 1.4rem; background: color-mix(in oklab, var(--paper) 40%, rgba(20,16,12,.55));
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: max(1.2rem, env(safe-area-inset-top)) 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+  background: color-mix(in oklab, var(--paper) 40%, rgba(20,16,12,.55));
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   animation: fade .4s var(--ease) both;
 }
+/* center, but scroll (not clip) when taller than the screen, and shrink to fit width */
+.overlay > * { margin: auto; max-width: 100%; }
 .overlay[hidden] { display: none; }
 .overlay--clear { background: color-mix(in oklab, var(--paper) 30%, rgba(20,16,12,.62)); }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -390,6 +396,88 @@ h1, h2, h3 { font-family: var(--font-serif); font-weight: 600; line-height: 1.25
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .12s !important; }
 }
 .reduce-motion .view.is-entering, .reduce-motion .specimen { animation: none !important; }
+
+/* ===== GARDEN SCENE (小屋のある庭) ===================================== */
+.view--garden {
+  max-width: none; margin: 0; padding: 0; position: relative;
+  height: calc(100dvh - var(--header-h)); overflow: hidden;
+}
+.garden-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  cursor: grab; touch-action: none;
+}
+.garden-canvas:active { cursor: grabbing; }
+
+.garden-hud { position: absolute; top: 1rem; left: 1rem; z-index: 5; pointer-events: none; }
+.garden-hud .overline { display: block; margin: 0 0 .5rem .2rem; }
+.stats--hud {
+  display: flex; gap: .2rem; padding: .55rem .4rem; pointer-events: auto;
+  background: var(--glass); backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--shadow-sm);
+  border-bottom: 0; /* override .stats */
+}
+.stats--hud .stat { padding: 0 .7rem; min-width: 48px; }
+.stats--hud .stat + .stat { border-left: 1px solid var(--line-2); }
+.stats--hud .stat__num { font-size: 1.18rem; }
+.stats--hud .stat__label { font-size: .6rem; letter-spacing: .1em; margin-top: .1rem; }
+
+.garden-tools { position: absolute; right: 1rem; bottom: calc(1.2rem + env(safe-area-inset-bottom)); z-index: 5; display: flex; gap: .5rem; align-items: center; }
+.hud-btn {
+  min-width: 46px; height: 46px; border-radius: 13px; border: 1px solid var(--line);
+  background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--ink); font-size: 1.2rem; cursor: pointer; display: grid; place-items: center;
+  box-shadow: var(--shadow-sm); transition: transform .25s var(--ease), background .25s var(--ease);
+  font-family: var(--font-sans);
+}
+.hud-btn:hover { background: var(--paper-2); transform: translateY(-2px); }
+.hud-btn:active { transform: translateY(0) scale(.96); }
+.hud-btn--wide { padding: 0 1.1rem; font-size: .92rem; letter-spacing: .04em; }
+
+.garden-hint {
+  position: absolute; bottom: calc(1.5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4;
+  font-size: .76rem; color: var(--ink-soft); background: var(--glass); padding: .42rem .95rem;
+  border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--line-2); pointer-events: none; transition: opacity .8s var(--ease); white-space: nowrap;
+}
+.garden-hint.hide { opacity: 0; }
+
+.garden-empty { position: absolute; inset: 0; display: grid; place-items: center; z-index: 6; padding: 1.4rem; }
+.garden-empty[hidden], .garden-list[hidden] { display: none; }
+.garden-empty__card {
+  text-align: center; background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: clamp(1.6rem, 5vw, 2.4rem);
+  box-shadow: var(--shadow); max-width: 360px;
+}
+.garden-empty__card h3 { font-size: 1.4rem; margin: 0 0 .5rem; }
+.garden-empty__card p { color: var(--ink-soft); margin: 0 0 1.5rem; }
+
+.garden-list {
+  position: absolute; inset: 0; z-index: 8; background: var(--paper);
+  overflow-y: auto; padding: clamp(1.2rem, 4vw, 2.2rem) clamp(1rem, 4vw, 2.2rem) 4rem;
+  animation: viewIn .45s var(--ease-out) both;
+}
+.garden-list__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; max-width: var(--maxw); margin: 0 auto 1.6rem; }
+.garden-list__head h2 { font-size: clamp(1.8rem, 5vw, 2.4rem); margin: .2rem 0 0; letter-spacing: .08em; }
+.garden-list .garden-grid { max-width: var(--maxw); margin: 0 auto; }
+
+@media (max-width: 640px) {
+  .garden-hud { top: .7rem; left: .7rem; }
+  .garden-tools { right: .7rem; bottom: calc(.9rem + env(safe-area-inset-bottom)); gap: .4rem; }
+  .hud-btn { min-width: 42px; height: 42px; }
+  .garden-hint { display: none; }
+  .stats--hud .stat { padding: 0 .5rem; min-width: 40px; }
+  .stats--hud .stat__num { font-size: 1rem; }
+}
+
+/* onboarding fits small screens (was clipping before the scrollable overlay fix) */
+@media (max-width: 560px) {
+  .onboard { padding: 1.5rem 1.2rem; }
+  .onboard__bloom { width: 112px; height: 126px; margin: -.4rem auto .2rem; }
+  .onboard__title { font-size: 1.9rem; }
+  .onboard__lead { font-size: .92rem; }
+  .onboard__note { font-size: .82rem; padding: .8rem .9rem; }
+  .ceremony__bloom { width: min(64vw, 280px); height: min(46vh, 330px); }
+}
 
 /* scrollbar */
 ::-webkit-scrollbar { width: 11px; height: 11px; }

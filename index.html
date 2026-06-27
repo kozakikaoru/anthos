@@ -64,11 +64,11 @@
         <div class="compose__write">
           <div class="compose__head">
             <span class="overline" id="todayLabel">—</span>
-            <h2 class="prompt" id="prompt">きょう、心に残ったことは？</h2>
+            <h2 class="prompt" id="prompt">きょうのこと</h2>
           </div>
           <div class="field">
             <textarea id="entry" class="entry" spellcheck="false"
-              placeholder="ここに、いまの気持ちを綴ってみてください。&#10;書くほどに、あなたの言葉から一輪がひらいていきます。"></textarea>
+              placeholder="きょうのことを、ひとことでも。&#10;書くほどに、庭にあたらしい花がふえていきます。"></textarea>
           </div>
           <div class="compose__bar">
             <span class="counter" id="charcount">0 字</span>
@@ -89,19 +89,38 @@
       </div>
     </section>
 
-    <!-- ===== 庭 ===== -->
-    <section id="view-garden" class="view" aria-label="庭" hidden>
-      <div class="garden-head">
-        <p class="overline">あなたの言葉が咲きそろう場所</p>
-        <h1 class="garden-title">庭</h1>
-        <div class="stats" id="stats"></div>
+    <!-- ===== 庭（小屋のある庭シーン） ===== -->
+    <section id="view-garden" class="view view--garden" aria-label="庭" hidden>
+      <canvas id="gardenCanvas" class="garden-canvas"></canvas>
+
+      <div class="garden-hud">
+        <span class="overline">あなたの庭</span>
+        <div class="stats stats--hud" id="stats"></div>
       </div>
-      <div class="garden-grid" id="gardenGrid"></div>
-      <div class="empty" id="gardenEmpty" hidden>
-        <div class="empty__art" id="emptyArt"></div>
-        <h3>まだ、何も咲いていません</h3>
-        <p>はじめの一文を綴ると、この庭に最初の一輪が咲きます。</p>
-        <button class="primary" data-nav="compose">最初の一輪を咲かせる</button>
+
+      <div class="garden-tools">
+        <button class="hud-btn" id="fitBtn" aria-label="庭全体を見る">全体</button>
+        <button class="hud-btn" id="zoomOutBtn" aria-label="ズームアウト">−</button>
+        <button class="hud-btn" id="zoomInBtn" aria-label="ズームイン">＋</button>
+        <button class="hud-btn hud-btn--wide" id="listToggle">図鑑</button>
+      </div>
+
+      <div class="garden-hint" id="gardenHint">ドラッグで移動・ホイール/ピンチで拡大。花を選ぶと開けます。</div>
+
+      <div class="garden-empty" id="gardenEmpty" hidden>
+        <div class="garden-empty__card">
+          <h3>庭は、まだ更地です</h3>
+          <p>最初の一文を書くと、小屋のまわりに最初の花が咲きます。</p>
+          <button class="primary" data-nav="compose">最初の種をまく</button>
+        </div>
+      </div>
+
+      <div class="garden-list" id="gardenList" hidden>
+        <div class="garden-list__head">
+          <div><span class="overline">咲いた花の標本帳</span><h2>図鑑</h2></div>
+          <button class="ghost" id="listClose">庭にもどる</button>
+        </div>
+        <div class="garden-grid" id="gardenGrid"></div>
       </div>
     </section>
 
@@ -197,6 +216,7 @@
   <script src="js/botany.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/scene.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

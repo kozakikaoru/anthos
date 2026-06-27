@@ -13,10 +13,14 @@
   /* ---- poetic naming ------------------------------------------------------ */
   const NAME_PRE = ['しずか', 'あけぼの', 'ゆうぐれ', 'ほしあかり', 'あまやどり', 'こもれび', 'まよなか',
     'はつなつ', 'ゆきげ', 'かぜまち', 'とおあさ', 'みなも', 'よあけ', 'つきしろ', 'あさつゆ', 'とおいひ',
-    'こころ', 'しののめ', 'たそがれ', 'なごり', 'はるさめ', 'よいやみ'];
+    'こころ', 'しののめ', 'たそがれ', 'なごり', 'はるさめ', 'よいやみ', 'はるかぜ', 'なつぐも', 'あきあかね',
+    'ふゆめき', 'よなが', 'やまびこ', 'つゆあけ', 'こはる', 'ゆうなぎ', 'あさぼらけ', 'つきよ', 'とこなつ',
+    'みかづき', 'しじま', 'あおぞら', 'きりさめ', 'ゆきあかり', 'しおさい'];
   const NAME_CORE = ['ともしび', 'うた', 'ためいき', 'まなざし', 'こだま', 'さざなみ', 'ねむり', 'きおく',
     'よろこび', 'しらべ', 'ひかり', 'あゆみ', 'むすび', 'とばり', 'はなびら', 'しるべ', 'つぶやき',
-    'まどろみ', 'せせらぎ', 'ひだまり', 'なみだ', 'こもりうた'];
+    'まどろみ', 'せせらぎ', 'ひだまり', 'なみだ', 'こもりうた', 'おもかげ', 'ことのは', 'いのり', 'めぐり',
+    'ぬくもり', 'しずく', 'ひととき', 'かけら', 'つどい', 'はぐくみ', 'やすらぎ', 'あこがれ', 'まぼろし',
+    'ひびき', 'いとなみ', 'たより', 'なぐさめ', 'はじまり'];
   const FLOWER_WORDS = ['しずかに、ここにいる', '遠くの灯をおもう', 'よく咲きました', 'ほどけてゆく',
     '明日へ、つづく', '名もなき日のために', 'そっと、つよく', 'うつろいを愛でる', 'ことばは枯れない',
     'またここで会いましょう', 'いまを、のこす', 'まだ見ぬ朝へ'];
@@ -40,17 +44,18 @@
   }
 
   /* ---- prompts ------------------------------------------------------------ */
+  // 短く、答えやすい日記の問い。
   const PROMPTS = [
-    'きょう、心に残ったことは？',
-    'いま、いちばん近くにある気持ちは？',
-    '今日であえた、小さな良いことは？',
-    '最近、ふと考えていることは？',
-    'だれかに伝えたい、けれど言えていないことは？',
-    '今日の自分に、ひとことかけるなら？',
-    'いま、そっと手放したいものは？',
-    '明日の自分が読んだら、うれしい言葉は？',
-    'この一週間で、すこし変わったことは？',
-    '今日のあなたを、天気にたとえると？'
+    'きょうのこと',
+    'いま、思っていること',
+    '心に残ったこと',
+    'すきだと感じたもの',
+    '小さな発見',
+    '今日の気分は？',
+    'ありがとうを、ひとつ',
+    'そっと手放したいこと',
+    '明日への、ひとこと',
+    '今日を色にすると？'
   ];
   let promptIdx = (new Date()).getDate() % PROMPTS.length;
 
@@ -127,6 +132,8 @@
     view: 'compose',
     reduceMotion: false,
     stages: {},
+    scene: null,
+    _focusNew: false,
     composeFlower: null,
     detailId: null
   };
@@ -148,13 +155,15 @@
     });
     U.$all('.nav__item').forEach(function (n) { n.classList.toggle('is-active', n.dataset.nav === view); });
 
-    // run only the active stage
+    // run only the active stage / scene
     if (app.stages.compose) (view === 'compose' ? app.stages.compose.play() : app.stages.compose.stop());
     if (app.stages.detail) (view === 'detail' ? app.stages.detail.play() : app.stages.detail.stop());
+    if (app.scene && view !== 'garden') app.scene.stop();
 
-    if (view === 'garden') renderGarden();
+    if (view === 'garden') enterGarden();
+    else $('#gardenList').hidden = true;
     if (view === 'compose') { app.stages.compose.resize(); $('#entry').focus({ preventScroll: true }); }
-    root.scrollTo({ top: 0, behavior: 'smooth' });
+    if (view !== 'garden') root.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   /* ---- COMPOSE ------------------------------------------------------------ */
@@ -205,6 +214,7 @@
     if (text.length < 2) return;
     const flower = new Flower(text);
     store.add(text);
+    if (app.scene) app.scene.setEntries(store.all());
     audio.bloom();
     ceremony(flower);
     // reset compose
@@ -245,19 +255,47 @@
     });
   }
 
-  function renderGarden() {
+  function ensureScene() {
+    if (app.scene) return app.scene;
+    const sc = new A.GardenScene($('#gardenCanvas'));
+    sc.reduce = app.reduceMotion;
+    sc.onPick = function (id) { openDetail(id); };
+    app.scene = sc;
+    return sc;
+  }
+
+  // Enter the spatial garden: (re)build the scene, fit the view, optionally
+  // animate-plant the newest bloom.
+  function enterGarden() {
     renderStats();
+    const all = store.all();
+    const sc = ensureScene();
+    sc.reduce = app.reduceMotion;
+    $('#gardenEmpty').hidden = all.length > 0;
+    $('#gardenList').hidden = true;
+    const focusNew = app._focusNew; app._focusNew = false;
+    sc.resize();
+    sc.setEntries(all);
+    sc.fit(true);
+    if (focusNew && all.length) sc.plantNewest();
+    sc.start();
+    // Re-measure once the section's layout has fully settled (un-hide can report
+    // a transitional size). setTimeout fires regardless of paint timing.
+    const refit = function () { sc.resize(); if (!focusNew) sc.fit(true); };
+    requestAnimationFrame(refit);
+    setTimeout(refit, 90);
+    const hint = $('#gardenHint');
+    if (hint && all.length) {
+      hint.classList.remove('hide');
+      clearTimeout(enterGarden._h); enterGarden._h = setTimeout(function () { hint.classList.add('hide'); }, 4600);
+    } else if (hint) hint.classList.add('hide');
+  }
+
+  // The "図鑑" mode — the herbarium grid of every bloom.
+  function renderGardenList() {
     const grid = $('#gardenGrid');
-    const empty = $('#gardenEmpty');
     const all = store.all();
     grid.innerHTML = '';
-    if (!all.length) {
-      empty.hidden = false; grid.hidden = true;
-      drawEmptyArt();
-      return;
-    }
-    empty.hidden = true; grid.hidden = false;
-
     all.forEach(function (entry, i) {
       const canvas = el('canvas', { class: 'specimen__canvas' });
       const card = el('div', { class: 'specimen' + (entry.fav ? ' is-fav' : '') }, [
@@ -269,27 +307,14 @@
           el('div', { class: 'specimen__date', text: U.relativeDay(entry.ts) })
         ])
       ]);
-      card.style.animationDelay = Math.min(i * 45, 600) + 'ms';
+      card.style.animationDelay = Math.min(i * 40, 500) + 'ms';
       card.addEventListener('click', function () { openDetail(entry.id); });
       grid.appendChild(card);
-      // draw thumbnail after layout
       requestAnimationFrame(function () {
         const d = fit(canvas);
         const f = new Flower(entry.text);
         f.draw(d.ctx, { w: d.w, h: d.h, t: (entry.seed % 700) / 100, growth: 1, sway: 0, glow: !app.reduceMotion });
       });
-    });
-  }
-
-  function drawEmptyArt() {
-    const host = $('#emptyArt');
-    host.innerHTML = '';
-    const c = el('canvas'); c.style.width = '100%'; c.style.height = '100%';
-    host.appendChild(c);
-    requestAnimationFrame(function () {
-      const d = fit(c);
-      const f = new Flower('');
-      f.draw(d.ctx, { w: d.w, h: d.h, t: 0, growth: 0.32, sway: 0, glow: false });
     });
   }
 
@@ -398,6 +423,11 @@
     app.reduceMotion = !!reduce;
     document.body.classList.toggle('reduce-motion', app.reduceMotion);
     $('#motionToggle').setAttribute('aria-checked', reduce ? 'true' : 'false');
+    if (app.scene) app.scene.reduce = app.reduceMotion;
+  }
+  function setHeaderH() {
+    const tb = $('#topbar');
+    if (tb) document.documentElement.style.setProperty('--header-h', tb.offsetHeight + 'px');
   }
   function openSettings() { $('#settings').hidden = false; }
   function closeSettings() { $('#settings').hidden = true; }
@@ -431,6 +461,14 @@
     U.$all('[data-nav]').forEach(function (b) {
       b.addEventListener('click', function () { audio.resume(); show(b.dataset.nav); });
     });
+
+    // garden controls
+    $('#fitBtn').addEventListener('click', function () { app.scene && app.scene.fit(); });
+    $('#zoomInBtn').addEventListener('click', function () { app.scene && app.scene.zoomBy(1.45); });
+    $('#zoomOutBtn').addEventListener('click', function () { app.scene && app.scene.zoomBy(1 / 1.45); });
+    $('#listToggle').addEventListener('click', function () { renderGardenList(); $('#gardenList').hidden = false; });
+    $('#listClose').addEventListener('click', function () { $('#gardenList').hidden = true; });
+    setHeaderH();
 
     // settings wiring
     $('#menuBtn').addEventListener('click', openSettings);
@@ -477,7 +515,7 @@
 
     // ceremony buttons
     $('#ceremonyContinue').addEventListener('click', function () { closeCeremony(); show('compose'); });
-    $('#ceremonyGarden').addEventListener('click', function () { closeCeremony(); show('garden'); });
+    $('#ceremonyGarden').addEventListener('click', function () { closeCeremony(); app._focusNew = true; show('garden'); });
 
     // global keys
     document.addEventListener('keydown', function (e) {
@@ -495,18 +533,21 @@
 
     // resize / visibility
     let rT; root.addEventListener('resize', function () {
+      setHeaderH();
       clearTimeout(rT); rT = setTimeout(function () {
         if (app.stages.compose) app.stages.compose.resize();
         if (app.stages.detail && app.view === 'detail') app.stages.detail.resize();
+        if (app.scene && app.view === 'garden') app.scene.resize();
       }, 160);
     });
     document.addEventListener('visibilitychange', function () {
-      const active = app.stages[app.view];
       if (document.hidden) {
-        if (active && active.stop) active.stop();
+        Object.keys(app.stages).forEach(function (k) { app.stages[k] && app.stages[k].stop(); });
+        if (app.scene) app.scene.stop();
         audio.stopAmbience();
-      } else if (active && active.play && !app.reduceMotion) {
-        active.play();
+      } else {
+        if (app.view === 'garden' && app.scene) app.scene.start();
+        else if (app.stages[app.view] && app.stages[app.view].play && !app.reduceMotion) app.stages[app.view].play();
         if (store.settings().sound !== false) audio.startAmbience();
       }
     });
