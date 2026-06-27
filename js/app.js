@@ -213,7 +213,8 @@
     const text = $('#entry').value.trim();
     if (text.length < 2) return;
     const flower = new Flower(text);
-    store.add(text);
+    const entry = store.add(text);
+    app._ceremonyEntry = entry;
     if (app.scene) app.scene.setEntries(store.all());
     audio.bloom();
     ceremony(flower);
@@ -343,7 +344,7 @@
         el('button', { class: 'ghost', id: 'favBtn', text: entry.fav ? '★ お気に入り' : '☆ お気に入り', onclick: function () {
           const e = store.toggleFav(id); $('#favBtn').textContent = e.fav ? '★ お気に入り' : '☆ お気に入り'; toast(e.fav ? 'お気に入りに加えました' : 'お気に入りを外しました');
         } }),
-        el('button', { class: 'ghost', text: '画像として保存', onclick: function () { exportPNG(entry); } }),
+        el('button', { class: 'ghost', text: '画像で共有', onclick: function () { shareImage(entry); } }),
         el('button', { class: 'ghost danger', text: '摘む（削除）', onclick: function () {
           if (confirm('この一輪を庭から摘みますか？（取り消せません）')) { store.remove(id); toast('庭から摘みました'); show('garden'); }
         } })
@@ -360,56 +361,151 @@
     st.resize(); st.setGrowth(1); st.play();
   }
 
-  /* ---- PNG export --------------------------------------------------------- */
-  function exportPNG(entry) {
-    const W = 1200, H = 1500;
+  /* ---- share image (Instagram Stories 9:16, words included) --------------- */
+  function hexA(hex, a) {
+    const h = (hex || '#c98aa6').replace('#', '');
+    const s = h.length === 3 ? h.replace(/(.)/g, '$1$1') : h;
+    const n = parseInt(s, 16) || 0;
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  function spaced(str) { return str.split('').join(' '); }
+  function sanitize(s) { return (s || 'anthos').replace(/[^\wぁ-んァ-ヶ一-龠ー]/g, ''); }
+
+  // Word-wrap with light Japanese 行頭禁則 (don't start a line with these).
+  function wrapText(ctx, text, maxW) {
+    const NO_START = '、。，．・）」』】〕｝〉》！？!?：；…ー々ぁぃぅぇぉっゃゅょゎ';
+    const lines = []; let line = '';
+    const chars = Array.from(text || '');
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i];
+      if (ch === '\n') { lines.push(line); line = ''; continue; }
+      const test = line + ch;
+      if (line && ctx.measureText(test).width > maxW) {
+        if (NO_START.indexOf(ch) >= 0) line = test;       // keep punctuation on this line
+        else { lines.push(line); line = ch; }
+      } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  // Pick the largest serif size whose wrapped text fits the region; else truncate.
+  function fitText(ctx, text, maxW, regionH, ff) {
+    const sizes = [48, 44, 40, 36, 33, 30];
+    for (let i = 0; i < sizes.length; i++) {
+      ctx.font = '400 ' + sizes[i] + 'px ' + ff;
+      const lines = wrapText(ctx, text, maxW);
+      if (lines.length * sizes[i] * 1.85 <= regionH) return { size: sizes[i], lines: lines };
+    }
+    const sz = sizes[sizes.length - 1];
+    ctx.font = '400 ' + sz + 'px ' + ff;
+    let lines = wrapText(ctx, text, maxW);
+    const maxLines = Math.max(1, Math.floor(regionH / (sz * 1.85)));
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      const last = Array.from(lines[maxLines - 1]);
+      lines[maxLines - 1] = last.slice(0, Math.max(1, last.length - 1)).join('') + '…';
+    }
+    return { size: sz, lines: lines };
+  }
+
+  function drawShare(entry) {
+    const W = 1080, H = 1920;
     const canvas = $('#exportCanvas'); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
     const flower = new Flower(entry.text);
+    const dark = document.body.dataset.theme === 'nocturne';
+    const ink = dark ? '#ece6d8' : '#2b2620';
+    const soft = dark ? '#a39c8c' : '#6f665a';
+    const faint = dark ? '#746f63' : '#9c9587';
+    const accent = flower.color();
+    const serif = '"Zen Old Mincho", serif';
+    const sans = '"Zen Kaku Gothic New", sans-serif';
+    const disp = '"Fraunces", serif';
 
-    function paint() {
-      const dark = document.body.dataset.theme === 'nocturne';
-      const bg = dark ? '#16171c' : '#f4eee2';
-      const ink = dark ? '#ece6d8' : '#2b2620';
-      const soft = dark ? '#a39c8c' : '#6f665a';
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-      // grain-free soft wash
-      const g = ctx.createRadialGradient(W * 0.2, -100, 100, W * 0.5, H * 0.4, H);
-      g.addColorStop(0, (dark ? 'rgba(143,174,120,.12)' : 'rgba(94,122,79,.10)'));
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      // frame
-      ctx.strokeStyle = dark ? 'rgba(236,230,216,.18)' : 'rgba(43,38,32,.22)';
-      ctx.lineWidth = 2; ctx.strokeRect(60, 60, W - 120, H - 120);
-      ctx.strokeStyle = dark ? 'rgba(236,230,216,.10)' : 'rgba(43,38,32,.10)';
-      ctx.strokeRect(74, 74, W - 148, H - 148);
-      // flower
-      flower.draw(ctx, { w: W, h: H * 0.86, t: (entry.seed % 700) / 100, growth: 1, sway: 0, glow: !dark });
-      // caption
-      ctx.textAlign = 'center';
-      ctx.fillStyle = ink;
-      ctx.font = '500 58px "Zen Old Mincho", serif';
-      ctx.fillText(nameFor(flower), W / 2, H - 230);
-      ctx.fillStyle = soft;
-      ctx.font = 'italic 30px "Fraunces", serif';
-      ctx.fillText(latinFor(flower), W / 2, H - 184);
-      ctx.font = '400 28px "Zen Kaku Gothic New", sans-serif';
-      ctx.fillText(U.formatDate(entry.ts) + '　·　' + entry.chars + ' 字', W / 2, H - 138);
-      // mark
-      ctx.fillStyle = soft; ctx.font = 'italic 26px "Fraunces", serif';
-      ctx.fillText('Anthos', W / 2, H - 96);
+    // ground
+    ctx.fillStyle = dark ? '#15161b' : '#f4eee2';
+    ctx.fillRect(0, 0, W, H);
+    let g = ctx.createRadialGradient(W * 0.16, H * 0.06, 60, W * 0.22, H * 0.2, H * 0.72);
+    g.addColorStop(0, hexA(accent, dark ? 0.17 : 0.14)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    g = ctx.createRadialGradient(W * 0.9, H * 0.96, 60, W * 0.78, H * 0.86, H * 0.6);
+    g.addColorStop(0, dark ? 'rgba(217,172,92,.10)' : 'rgba(94,122,79,.10)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-      canvas.toBlob(function (blob) {
+    // herbarium plate frame
+    ctx.strokeStyle = dark ? 'rgba(236,230,216,.18)' : 'rgba(43,38,32,.20)';
+    ctx.lineWidth = 2; ctx.strokeRect(54, 54, W - 108, H - 108);
+    ctx.strokeStyle = dark ? 'rgba(236,230,216,.10)' : 'rgba(43,38,32,.10)';
+    ctx.strokeRect(70, 70, W - 140, H - 140);
+
+    ctx.textAlign = 'center';
+    // overline
+    ctx.fillStyle = faint; ctx.font = '500 25px ' + sans;
+    ctx.fillText(spaced('ANTHOS'), W / 2, 150);
+
+    // flower (hero, upper)
+    ctx.save();
+    ctx.translate(W / 2 - 300, 158);
+    flower.draw(ctx, { w: 600, h: 740, t: (entry.seed % 700) / 100, growth: 1, sway: 0, glow: !dark });
+    ctx.restore();
+
+    // name + latin
+    ctx.fillStyle = ink; ctx.font = '500 62px ' + serif;
+    ctx.fillText(nameFor(flower), W / 2, 1002);
+    ctx.fillStyle = soft; ctx.font = 'italic 30px ' + disp;
+    ctx.fillText(latinFor(flower), W / 2, 1050);
+
+    // accent divider (flower colour)
+    ctx.strokeStyle = hexA(accent, 0.65); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(W / 2 - 56, 1098); ctx.lineTo(W / 2 + 56, 1098); ctx.stroke();
+
+    // diary words (the hero)
+    const regionTop = 1168, regionH = 512, maxW = W - 264;
+    const fit = fitText(ctx, entry.text, maxW, regionH, serif);
+    ctx.fillStyle = ink; ctx.font = '400 ' + fit.size + 'px ' + serif;
+    const lh = fit.size * 1.85;
+    const total = fit.lines.length * lh;
+    let y = regionTop + (regionH - total) / 2 + fit.size * 0.85;
+    for (let i = 0; i < fit.lines.length; i++) { ctx.fillText(fit.lines[i], W / 2, y); y += lh; }
+
+    // epigraph (花言葉) + footer (date)
+    ctx.fillStyle = soft; ctx.font = 'italic 31px ' + serif;
+    ctx.fillText('「' + flowerWordFor(flower) + '」', W / 2, 1742);
+    ctx.fillStyle = faint; ctx.font = '400 28px ' + sans;
+    ctx.fillText(U.formatDate(entry.ts), W / 2, 1818);
+
+    return { canvas: canvas, name: nameFor(flower) };
+  }
+
+  function deliverImage(entry) {
+    const built = drawShare(entry);
+    built.canvas.toBlob(function (blob) {
+      if (!blob) { toast('画像の生成に失敗しました'); return; }
+      const fname = 'anthos-' + sanitize(built.name) + '.png';
+      const coarse = root.matchMedia && root.matchMedia('(pointer: coarse)').matches;
+      let file = null;
+      try { file = new File([blob], fname, { type: 'image/png' }); } catch (e) {}
+      const download = function (msg) {
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'anthos-' + nameFor(flower).replace(/[^\wぁ-んァ-ヶ一-龠]/g, '') + '.png';
+        const a = document.createElement('a'); a.href = url; a.download = fname;
         document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-        toast('画像を書き出しました');
-      }, 'image/png');
-    }
-    if (root.document.fonts && document.fonts.ready) document.fonts.ready.then(paint).catch(paint);
-    else paint();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+        toast(msg || '画像を保存しました（ストーリーズに投稿できます）');
+      };
+      if (coarse && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], text: built.name + '｜Anthos' })
+          .then(function () { toast('共有しました'); })
+          .catch(function (e) { if (e && e.name === 'AbortError') return; download(); });
+      } else download();
+    }, 'image/png');
+  }
+
+  // Build synchronously when fonts are already loaded (preserves the share gesture);
+  // otherwise wait for them, then deliver (falls back to download if share is blocked).
+  function shareImage(entry) {
+    const ready = document.fonts && document.fonts.check && document.fonts.check('40px "Zen Old Mincho"');
+    if (ready || !(document.fonts && document.fonts.ready)) deliverImage(entry);
+    else document.fonts.ready.then(function () { deliverImage(entry); });
   }
 
   /* ---- settings ----------------------------------------------------------- */
@@ -514,6 +610,7 @@
     });
 
     // ceremony buttons
+    $('#ceremonyShare').addEventListener('click', function () { if (app._ceremonyEntry) shareImage(app._ceremonyEntry); });
     $('#ceremonyContinue').addEventListener('click', function () { closeCeremony(); show('compose'); });
     $('#ceremonyGarden').addEventListener('click', function () { closeCeremony(); app._focusNew = true; show('garden'); });
 
